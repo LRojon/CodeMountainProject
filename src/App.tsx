@@ -6,7 +6,9 @@ import './App.css';
 Chart.register(LineController, BarController, CategoryScale, LinearScale, BarElement, PointElement, LineElement)
 
 const getData = async () => {
-    const response = await fetch('../src/Data/Project.txt')
+    const response = await fetch('/Data/Project.txt')
+    console.log(response);
+    
     return await response.text()
 }
 
@@ -95,7 +97,7 @@ const App = () => {
             backgroundColor: ['rgb(255,255, 255)'],
             borderColor: ['rgb(100,0,0)'],
             borderWidth: 2,
-            tension: 0.2,
+            tension: 0,
             fill: true
         }],
         
@@ -107,14 +109,22 @@ const App = () => {
     const canvas = useRef<HTMLCanvasElement | null>(null)
     const canvasCtx = useRef<CanvasRenderingContext2D | null>(null)
 
-    const canvasCallback = (canvas: HTMLCanvasElement | null) => {
-        if(!canvas) return;
+    useEffect(() => {
+        
+        getData().then(txt => setContent(txt))
+        
+        mountain = makeArray(content)
+        console.log(content);
+        console.log(mountain);
+        
 
-        const ctx = canvas.getContext('2d')
-        if(ctx) {
-            chartRef.current = new Chart(ctx, {
+        if(canvas.current) {
+            canvasCtx.current = canvas.current.getContext('2d')
+            const ctx = canvasCtx.current
+            chartRef.current?.destroy()
+            chartRef.current = new Chart(canvas.current, {
                 type: "line",
-                data: formatData(makeArray(content)),
+                data: formatData(mountain),
                 options: { 
                     responsive: true,
                     scales: {
@@ -128,44 +138,11 @@ const App = () => {
                 }
             })
         }
-    }
-
-    useEffect(() => {
-        
-        getData().then(txt => setContent(txt))
-
-        setTimeout(() => {
-            mountain = makeArray(content)
-            console.log(content);
-            console.log(mountain);
-            
-    
-            if(canvas.current) {
-                canvasCtx.current = canvas.current.getContext('2d')
-                const ctx = canvasCtx.current
-                chartRef.current?.destroy()
-                chartRef.current = new Chart(canvas.current, {
-                    type: "line",
-                    data: formatData(mountain),
-                    options: { 
-                        responsive: true,
-                        scales: {
-                            yAxes: {
-                                max: Math.max(...mountain) + 0.5,
-                                ticks: {
-                                    stepSize: Math.max(...mountain) + 0.5
-                                }
-                            }
-                        }
-                    }
-                })
-            }
-        }, 1000);
     }, [refresh])
 
     return (
         <div className="App">
-            <button onClick={() => {setRefresh(!refresh); change.current = true}} >Refresh</button><br/>
+            <button onClick={() => {setRefresh(!refresh); change.current = true}} >{change.current ? "Refresh" : "Start"}</button><br/>
             <canvas width={500} height={250} ref={canvas} ></canvas>
         </div>
     );
