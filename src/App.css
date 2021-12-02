@@ -1,10 +1,16 @@
 body {
     height: 99vh;
     width: 99vw;
+    background-color: #282828;
 }
 
 .App {
     text-align: center;
     height: 100%;
     width: 100%;
+}
+
+svg {
+    border: solid 5px #fff4;
+    border-style:dashed
 }

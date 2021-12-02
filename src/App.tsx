@@ -1,55 +1,25 @@
-import { Chart, ChartData, LineController, BarController, CategoryScale, LinearScale, BarElement, PointElement, LineElement } from 'chart.js';
+import { Chart, LineController, BarController, CategoryScale, LinearScale, BarElement, PointElement, LineElement } from 'chart.js';
 //import Chart from 'chart.js/auto'
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import './App.css';
 
 Chart.register(LineController, BarController, CategoryScale, LinearScale, BarElement, PointElement, LineElement)
+const WIDTH = Math.floor(window.innerWidth * 0.95)
+const HEIGHT = Math.floor(window.innerHeight * 0.98)
 
 const getData = async () => {
-    const response = await fetch('/Data/Project.txt')
-    console.log(response);
-    
+    const response = await fetch('http://http://srv-glpi/front/ticket.php')
     return await response.text()
 }
 
 const App = () => {
+    //const [content, setContent] = useState('')
+    //const [refresh, setRefresh] = useState(true)
+    const container = useRef<HTMLDivElement | null>(null)
 
-    /*let content = "import './App.css';\n" +
-"\n" +
-"    const App = () => {\n" +
-"    \n" +
-"        const makeArray = (content: string): number[] => {\n" +
-"            const strArray = content.split('\\n')\n" +
-"    \n" +
-"            let ret: number[] = []\n" +
-"    \n" +
-"            for(const line of strArray) {\n" +
-"                let n = 0\n" +
-"                for(const char of line) {\n" +
-"                    if(char === ' ') { n += 1 }\n" +
-"                    else { break; }\n" +
-"                }\n" +
-"                ret.push(n)\n" +
-"            }\n" +
-"            return ret\n" +
-"        }\n" +
-"    \n" +
-"        return (\n" +
-"            <div className=\"App\">\n" +
-"            </div>\n" +
-"        );\n" +
-"    }\n" +
-"    \n" +
-"                            \n" +
-"    export default App;"*/
-
-    const [content, setContent] = useState('')
-    const [refresh, setRefresh] = useState(true)
-    const change = useRef(false)
-
-    const makeArray = (content: string, uniqueConsecutiveValue: boolean = false, withEmptyLine: boolean = true): number[] => {
+    const makeArray = (content: string, uniqueConsecutiveValue: boolean = true, withEmptyLine: boolean = false): number[] => {
         const strArray = content.split('\n')
-
+        
         let ret: number[] = []
 
         for(const line of strArray) {
@@ -71,6 +41,7 @@ const App = () => {
                     ret.push(n)
                 }
             }
+            //ret.push(line.length)
         }
         ret.map((e, i) => { return ret[i] = Math.floor(e / 4) })
         
@@ -87,63 +58,67 @@ const App = () => {
                 ret.splice(toDelete[i], 1)
             }
         }
+
+        ret.push(ret[0])
         return ret
     }
 
-    const formatData = (data: number[]): ChartData => ({
-        labels: Array.from(Array(data.length).keys()),
-        datasets: [{
-            data: data,
-            backgroundColor: ['rgb(255,255, 255)'],
-            borderColor: ['rgb(100,0,0)'],
-            borderWidth: 2,
-            tension: 0,
-            fill: true
-        }],
-        
-    })
+    const makeMountain = (values: number[]): SVGElement => {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+        svg.setAttribute("width", WIDTH.toString());
+        svg.setAttribute("height", HEIGHT.toString());
+        svg.setAttribute("viewbox", "0 0 " + WIDTH + " " + HEIGHT)
 
-    const chartRef = useRef<Chart | null>(null)
-    let mountain: number[] = makeArray(content)
+        let coordMountain = ""
+        let x= 0
+        const stepX = Math.floor(WIDTH / (values.length - 2))
+        const stepY = Math.floor(HEIGHT / (Math.max(...values))) - 5
+        console.log("Step: " + stepX + ", " + stepY)
+        for(const y of values) {
+            coordMountain += x * stepX + " " + (HEIGHT - y * stepY) + ", ";
+            x++
+        }
 
-    const canvas = useRef<HTMLCanvasElement | null>(null)
-    const canvasCtx = useRef<CanvasRenderingContext2D | null>(null)
+        // create a polygon
+        const mountain = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        mountain.setAttribute("points", coordMountain); // test : "0 0, 30 65, 130 100, 200 150, 100 30, 65 20, 0 0"
+        mountain.setAttribute("fill", "red");
+        // attach it to the container
+        svg.appendChild(mountain);
+
+        x = 0;
+        for(const y of values) {
+            const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle")
+            dot.setAttribute('cx', (x * stepX).toString())
+            dot.setAttribute('cy', (HEIGHT - y * stepY).toString())
+            dot.setAttribute('r', '5')
+            dot.setAttribute('fill', 'white')
+            dot.setAttribute('stroke', 'darkred')
+            dot.setAttribute('stroke-width', '2')
+            svg.appendChild(dot)
+
+            x++
+        }
+
+        return svg
+    }
 
     useEffect(() => {
-        
-        getData().then(txt => setContent(txt))
-        
-        mountain = makeArray(content)
-        console.log(content);
-        console.log(mountain);
-        
+        getData().then(txt => {
+            let mountain: number[] = []
+            mountain = makeArray(txt)
 
-        if(canvas.current) {
-            canvasCtx.current = canvas.current.getContext('2d')
-            const ctx = canvasCtx.current
-            chartRef.current?.destroy()
-            chartRef.current = new Chart(canvas.current, {
-                type: "line",
-                data: formatData(mountain),
-                options: { 
-                    responsive: true,
-                    scales: {
-                        yAxes: {
-                            max: Math.max(...mountain) + 0.5,
-                            ticks: {
-                                stepSize: Math.max(...mountain) + 0.5
-                            }
-                        }
-                    }
-                }
-            })
-        }
-    }, [refresh])
+            if(container.current) {
+                if(container.current.firstChild) { container.current.removeChild(container.current.firstChild) }
+                container.current.appendChild(makeMountain(mountain))
+            }
+        })
+    }, [])
 
     return (
-        <div className="App">
-            <button onClick={() => {setRefresh(!refresh); change.current = true}} >{change.current ? "Refresh" : "Start"}</button><br/>
-            <canvas width={500} height={250} ref={canvas} ></canvas>
+        <div id='container' ref={container} className="App">
+            {/*}<button onClick={() => {setRefresh(!refresh); change.current = true}} >{change.current ? "Refresh" : "Start"}</button><br/>*/}
         </div>
     );
 }
